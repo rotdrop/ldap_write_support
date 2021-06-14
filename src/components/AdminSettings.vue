@@ -14,6 +14,8 @@ import '@nextcloud/dialogs/style.css'
 interface Templates {
 	user: string
 	userDefault: string
+	group: string
+	groupDefault: string
 }
 
 const props = defineProps<{
@@ -22,6 +24,7 @@ const props = defineProps<{
 }>()
 
 const userTemplate = ref(props.templates.user.slice())
+const groupTemplate = ref(props.templates.group.slice())
 const checkboxes = ref({ ...props.switches })
 
 /**
@@ -38,6 +41,22 @@ function setUserTemplate(): void {
 		return
 	}
 	OCP.AppConfig.setValue('ldap_write_support', 'template.user', userTemplate.value)
+}
+
+/**
+ * Persist the group template, or reset to the default when it is empty.
+ */
+function setGroupTemplate(): void {
+  if (props.templates.group === '') {
+    OCP.AppConfig.deleteKey('ldap_write_support', 'template.group', {
+			success: () => {
+				groupTemplate.value = props.templates.groupDefault.slice()
+			},
+			error: () => showError(t('ldap_write_support', 'Failed to set group template.')),
+		})
+		return
+	}
+	OCP.AppConfig.setValue('ldap_write_support', 'template.group', groupTemplate.value)
 }
 
 /**
@@ -112,6 +131,14 @@ function toggleSwitch(prefKey: string, state: boolean, appId = 'ldap_write_suppo
 			<li><span class="mono">{BASE}</span> – {{ t('ldap_write_support', 'the LDAP node of the acting (sub)admin or the configured user base') }}</li>
 		</ul>
 		<textarea v-model="userTemplate" class="mono" @change="setUserTemplate" />
+		<h3>{{ t('ldap_write_support', 'Group template') }}</h3>
+		<p>{{ t('ldap_write_support', 'LDIF template for creating groups. Following placeholders may be used') }}</p>
+		<ul class="disc">
+			<li><span class="mono">{GID}</span> – {{ t('ldap_write_support', 'the group id provided by the (sub)admin') }}</li>
+			<li><span class="mono">{PWD}</span> – {{ t('ldap_write_support', 'the password provided by the (sub)admin') }}</li>
+			<li><span class="mono">{BASE}</span> – {{ t('ldap_write_support', 'the LDAP node of the acting (sub)admin or the configured group base') }}</li>
+		</ul>
+		<textarea v-model="groupTemplate" class="mono" @change="setGroupTemplate" />
 	</div>
 </template>
 
