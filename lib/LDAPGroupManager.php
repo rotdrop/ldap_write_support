@@ -10,19 +10,23 @@ namespace OCA\LdapWriteSupport;
 
 use Exception;
 use OCA\LdapWriteSupport\AppInfo\Application;
+use OCA\LdapWriteSupport\Service\Configuration;
 use OCA\User_LDAP\Group_Proxy;
 use OCA\User_LDAP\ILDAPGroupPlugin;
 use OCP\GroupInterface;
 use OCP\IGroupManager;
+use OCP\IUserSession;
 use OCP\LDAP\ILDAPProvider;
 use Psr\Log\LoggerInterface;
 
 class LDAPGroupManager implements ILDAPGroupPlugin {
 	public function __construct(
+		private Configuration $configuration,
 		private IGroupManager $groupManager,
+		private ILDAPProvider $ldapProvider,
+		private IUserSession $userSession,
 		private LDAPConnect $ldapConnect,
 		private LoggerInterface $logger,
-		private ILDAPProvider $ldapProvider,
 	) {
 		if ($this->ldapConnect->groupsEnabled()) {
 			$this->makeLdapBackendFirst();
@@ -50,14 +54,33 @@ class LDAPGroupManager implements ILDAPGroupPlugin {
 	 * @return string|null
 	 */
 	public function createGroup($gid) {
-		/**
-		 * FIXME could not create group using LDAPProvider, because its methods rely
-		 * on passing an already inserted [ug]id, which we do not have at this point.
-		 */
+		$adminUser = $this->userSession->getUser();
+		$requireActorFromLDAP = $this->configuration->isLdapActorRequired();
+		if ($requireActorFromLDAP && !$adminUser instanceof IUser) {
+			throw new Exception('Acting user is not from LDAP');
+		}
+		try {
+			// $adminUser can be null, for example when using the registration app,
+			// throw an Exception to fallback on using the global LDAP connection.
+			if ($adminUser === null) {
+				throw new Exception('No admin user available');
+			}
+			$connection = $this->ldapProvider->getLDAPConnection($adminUser->getUID());
+			// TODO: what about multiple bases?
+			$base = $this->ldapProvider->getLDAPBaseUsers($adminUser->getUID());
+			$displayNameAttribute = $this->ldapProvider->getLDAPDisplayNameField($adminUser->getUID());
+		} catch (Exception $e) {
+			if ($requireActorFromLDAP) {
+				if ($this->configuration->isPreventFallback()) {
+					throw new \Exception('Acting admin is not from LDAP', 0, $e);
+				}
+				return false;
+			}
+			$connection = $this->ldapConnect->getLDAPConnection();
+			$base = $this->ldapConnect->getLDAPBaseGroups()[0];
+		}
 
-		$newGroupEntry = $this->buildNewEntry($gid);
-		$connection = $this->ldapConnect->getLDAPConnection();
-		$newGroupDN = "cn=$gid," . $this->ldapConnect->getLDAPBaseGroups()[0];
+		list($newGroupDN, $newGroupEntry) = $this->buildNewEntry($gid, $base);
 		$newGroupDN = $this->ldapProvider->sanitizeDN([$newGroupDN])[0];
 
 		if ($connection && ($ret = ldap_add($connection, $newGroupDN, $newGroupEntry))) {
@@ -188,12 +211,38 @@ class LDAPGroupManager implements ILDAPGroupPlugin {
 		}
 	}
 
-	private function buildNewEntry($gid): array {
-		return [
-			'objectClass' => ['groupOfNames', 'top'],
-			'cn' => $gid,
-			'member' => ['']
-		];
+	public function buildNewEntry($gid, $base): array {
+		// Make sure the parameters don't fool the following algorithm
+		if (strpos($gid, PHP_EOL) !== false) {
+			throw new Exception('GID contains a new line');
+		}
+		if (strpos($base, PHP_EOL) !== false) {
+			throw new Exception('Base DN contains a new line');
+		}
+
+		$ldif = $this->configuration->getGroupTemplate();
+
+		$ldif = str_replace('{GID}', $gid, $ldif);
+		$ldif = str_replace('{BASE}', $base, $ldif);
+
+		$entry = [];
+		$lines = explode(PHP_EOL, $ldif);
+		foreach ($lines as $line) {
+			$split = explode(':', $line, 2);
+			$key = trim($split[0]);
+			$value = trim($split[1]);
+			if (!isset($entry[$key])) {
+				$entry[$key] = $value;
+			} else if (is_array($entry[$key])) {
+				$entry[$key][] = $value;
+			} else {
+				$entry[$key] = [$entry[$key], $value];
+			}
+		}
+		$dn = $entry['dn'];
+		unset($entry['dn']);
+
+		return [$dn, $entry];
 	}
 
 	public function makeLdapBackendFirst(): void {
