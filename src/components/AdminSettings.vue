@@ -53,6 +53,14 @@
 			<li><span class="mono">{BASE}</span> – {{ t('ldap_write_support', 'the LDAP node of the acting (sub)admin or the configured user base') }}</li>
 		</ul>
 		<textarea v-model="userTemplate" class="mono" @change="setUserTemplate" />
+		<h3>{{ t('ldap_write_support', 'Group template') }}</h3>
+		<p>{{ t('ldap_write_support', 'LDIF template for creating groups. Following placeholders may be used') }}</p>
+		<ul class="disc">
+			<li><span class="mono">{GID}</span> – {{ t('ldap_write_support', 'the group id provided by the (sub)admin') }}</li>
+			<li><span class="mono">{PWD}</span> – {{ t('ldap_write_support', 'the password provided by the (sub)admin') }}</li>
+			<li><span class="mono">{BASE}</span> – {{ t('ldap_write_support', 'the LDAP node of the acting (sub)admin or the configured group base') }}</li>
+		</ul>
+		<textarea v-model="groupTemplate" class="mono" @change="setGroupTemplate" />
 	</div>
 </template>
 
@@ -80,6 +88,7 @@ export default {
 	data() {
 		return {
 			userTemplate: this.templates.user.slice(),
+			groupTemplate: this.templates.group.slice(),
 			checkboxes: { ...this.switches },
 		}
 	},
@@ -96,7 +105,18 @@ export default {
 			}
 			OCP.AppConfig.setValue('ldap_write_support', 'template.user', this.userTemplate)
 		},
-
+		setGroupTemplate() {
+			if (this.templates.group === '') {
+				OCP.AppConfig.deleteKey('ldap_write_support', 'template.group', {
+					success: () => {
+						this.groupTemplate = this.templates.groupDefault.slice()
+					},
+					error: () => showError(t('ldap_write_support', 'Failed to set group template.')),
+				})
+				return
+			}
+			OCP.AppConfig.setValue('ldap_write_support', 'template.group', this.groupTemplate)
+		},
 		toggleSwitch(prefKey, state, appId = 'ldap_write_support') {
 			this.checkboxes[prefKey] = state
 			let value = (state | 0).toString()
