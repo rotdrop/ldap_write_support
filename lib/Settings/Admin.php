@@ -12,18 +12,14 @@ use OCA\LdapWriteSupport\AppInfo\Application;
 use OCA\LdapWriteSupport\Service\Configuration;
 use OCP\AppFramework\Http\TemplateResponse;
 use OCP\AppFramework\Services\IInitialState;
-use OCP\Settings\ISettings;
+use OCP\Settings\IDelegatedSettings;
 use OCP\Util;
 
-class Admin implements ISettings {
-	/** @var IInitialState */
-	private $initialStateService;
-
+class Admin implements IDelegatedSettings {
 	public function __construct(
-		IInitialState $initialStateService,
+		private IInitialState $initialStateService,
 		private Configuration $config,
 	) {
-		$this->initialStateService = $initialStateService;
 	}
 
 	/**
@@ -77,5 +73,13 @@ class Admin implements ISettings {
 	 */
 	public function getPriority() {
 		return 35;
+	}
+
+	public function getName(): ?string {
+		return null; // Only one setting in this section
+	}
+
+	public function getAuthorizedAppConfig(): array {
+		return []; // Custom controller
 	}
 }
