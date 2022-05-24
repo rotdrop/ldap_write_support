@@ -29,9 +29,9 @@ use OCA\LdapWriteSupport\AppInfo\Application;
 use OCA\LdapWriteSupport\Service\Configuration;
 use OCP\AppFramework\Http\TemplateResponse;
 use OCP\AppFramework\Services\IInitialState;
-use OCP\Settings\ISettings;
+use OCP\Settings\IDelegatedSettings;
 
-class Admin implements ISettings {
+class Admin implements IDelegatedSettings {
 	/** @var Configuration */
 	private $config;
 
@@ -92,5 +92,13 @@ class Admin implements ISettings {
 	 */
 	public function getPriority() {
 		return 35;
+	}
+
+	public function getName(): ?string {
+		return null; // Only one setting in this section
+	}
+
+	public function getAuthorizedAppConfig(): array {
+		return []; // Custom controller
 	}
 }
