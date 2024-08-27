@@ -18,21 +18,12 @@ use OCP\LDAP\ILDAPProvider;
 use Psr\Log\LoggerInterface;
 
 class LDAPGroupManager implements ILDAPGroupPlugin {
-	/** @var ILDAPProvider */
-	private $ldapProvider;
-
-	/** @var IGroupManager */
-	private $groupManager;
-
 	public function __construct(
-		IGroupManager $groupManager,
+		private IGroupManager $groupManager,
 		private LDAPConnect $ldapConnect,
 		private LoggerInterface $logger,
-		ILDAPProvider $LDAPProvider,
+		private ILDAPProvider $ldapProvider,
 	) {
-		$this->groupManager = $groupManager;
-		$this->ldapProvider = $LDAPProvider;
-
 		if ($this->ldapConnect->groupsEnabled()) {
 			$this->makeLdapBackendFirst();
 		}
