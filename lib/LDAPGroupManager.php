@@ -37,28 +37,14 @@ use OCP\LDAP\ILDAPProvider;
 use Psr\Log\LoggerInterface;
 
 class LDAPGroupManager implements ILDAPGroupPlugin {
-	/** @var ILDAPProvider */
-	private $ldapProvider;
-
-	/** @var IUserSession */
-	private $userSession;
-
-	/** @var IGroupManager */
-	private $groupManager;
-
-	/** @var LDAPConnect */
-	private $ldapConnect;
-	/** @var LoggerInterface */
-	private $logger;
-
-	public function __construct(IGroupManager $groupManager, IUserSession $userSession, LDAPConnect $ldapConnect, LoggerInterface $logger, ILDAPProvider $LDAPProvider, Configuration $configuration) {
-		$this->groupManager = $groupManager;
-		$this->userSession = $userSession;
-		$this->ldapConnect = $ldapConnect;
-		$this->logger = $logger;
-		$this->ldapProvider = $LDAPProvider;
-		$this->configuration = $configuration;
-
+	public function __construct(
+		private IGroupManager $groupManager,
+		private IUserSession $userSession,
+		private LDAPConnect $ldapConnect,
+		private LoggerInterface $logger,
+		private ILDAPProvider $LDAPProvider,
+		private Configuration $configuration,
+	) {
 		if ($this->ldapConnect->groupsEnabled()) {
 			$this->makeLdapBackendFirst();
 		}
